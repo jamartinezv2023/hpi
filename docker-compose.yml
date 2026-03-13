@@ -1,12 +1,19 @@
-version: '3.9'
+version: "3.9"
 
 services:
+
   postgres:
     image: postgres:16
-    container_name: hpi-postgres
     environment:
       POSTGRES_DB: hpi
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: hpi
+      POSTGRES_PASSWORD: hpi
     ports:
       - "5432:5432"
+
+  backend:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
