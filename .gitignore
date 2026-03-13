@@ -1,0 +1,26 @@
+# Gradle
+.gradle
+build/
+
+# Java
+*.class
+*.jar
+*.war
+
+# IDE
+.idea
+.vscode
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment
+.env
+
+# Testcontainers cache
+testcontainers.properties
