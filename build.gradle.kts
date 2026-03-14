@@ -1,7 +1,9 @@
 plugins {
     java
+    jacoco
     id("org.springframework.boot") version "3.2.5"
     id("io.spring.dependency-management") version "1.1.4"
+    id("org.sonarqube") version "4.4.1.3373"
 }
 
 group = "edu.hpi"
@@ -18,8 +20,13 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
+dependencyManagement {
+    imports {
+        mavenBom("org.testcontainers:testcontainers-bom:2.0.3")
+    }
+}
 
+dependencies {
     // ===============================
     // CORE
     // ===============================
@@ -27,26 +34,97 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.boot:spring-boot-starter-validation")
-    implementation("org.flywaydb:flyway-core")
 
     // ===============================
     // DATABASE
     // ===============================
+    implementation("org.flywaydb:flyway-core")
     runtimeOnly("org.postgresql:postgresql")
 
     // ===============================
-    // TESTING
+    // TESTING CORE
     // ===============================
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.security:spring-security-test")
+    testImplementation("org.assertj:assertj-core:3.25.3")
 
-    // Testcontainers (PostgreSQL real en tests)
-    testImplementation("org.testcontainers:junit-jupiter:1.19.7")
-    testImplementation("org.testcontainers:postgresql:1.19.7")
+    // ===============================
+    // TESTCONTAINERS
+    // ===============================
+    testImplementation("org.testcontainers:testcontainers")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-postgresql")
 
+    // ===============================
+    // BDD TESTING
+    // ===============================
+    testImplementation("io.cucumber:cucumber-java:7.15.0")
+    testImplementation("io.cucumber:cucumber-junit-platform-engine:7.15.0")
+
+    // ===============================
+    // JUNIT PLATFORM
+    // ===============================
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-tasks.withType<Test> {
+tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+
+    environment("DOCKER_HOST", "unix:///var/run/docker.sock")
+    environment("TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE", "/var/run/docker.sock")
+
+    testLogging {
+        events("passed", "skipped", "failed")
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
+}
+
+tasks.test {
+    description = "Runs unit tests"
+    group = "verification"
+
+    useJUnitPlatform {
+        excludeTags("integration")
+    }
+
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+val integrationTest by tasks.registering(Test::class) {
+    description = "Runs integration tests"
+    group = "verification"
+
+    useJUnitPlatform {
+        includeTags("integration")
+    }
+
+    shouldRunAfter(tasks.test)
+}
+
+tasks.check {
+    dependsOn(integrationTest)
+}
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+}
+
+sonarqube {
+    properties {
+        property("sonar.projectKey", "hpi-backend")
+        property("sonar.organization", "jamartinezv2023")
+        property("sonar.host.url", "https://sonarcloud.io")
+    }
 }

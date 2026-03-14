@@ -1,6 +1,8 @@
 package edu.hpi.api.dto;
 
+import java.util.UUID;
+
 public record InstitutionResponse(
-        Long id,
+        UUID id,
         String name
 ) {}
