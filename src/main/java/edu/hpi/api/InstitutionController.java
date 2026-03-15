@@ -3,8 +3,8 @@ package edu.hpi.api;
 import edu.hpi.api.dto.CreateInstitutionRequest;
 import edu.hpi.api.dto.InstitutionResponse;
 import edu.hpi.application.InstitutionService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -19,7 +19,7 @@ public class InstitutionController {
 
     @PostMapping
     public ResponseEntity<InstitutionResponse> create(
-            @RequestBody @Validated CreateInstitutionRequest request) {
+            @RequestBody @Valid CreateInstitutionRequest request) {
 
         var institution = service.create(request.name());
 
