@@ -3,3 +3,6 @@ CREATE TABLE institution (
     name VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL
 );
+
+CREATE UNIQUE INDEX uk_institution_name
+ON institution (lower(trim(name)));

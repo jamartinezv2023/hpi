@@ -1,66 +1,106 @@
 package edu.hpi.repository;
 
-import edu.hpi.AbstractIntegrationTest;
 import edu.hpi.domain.Institution;
-import org.junit.jupiter.api.Tag;
+import edu.hpi.domain.InstitutionName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
+import java.time.Duration;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Tag("integration")
-class InstitutionRepositoryTest extends AbstractIntegrationTest {
+@DataJpaTest
+@Testcontainers
+@ActiveProfiles("test")
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+class InstitutionRepositoryTest {
+
+    @SuppressWarnings("resource")
+    private static final PostgreSQLContainer<?> POSTGRESQL_CONTAINER =
+            new PostgreSQLContainer<>("postgres:16-alpine")
+                    .withDatabaseName("testdb")
+                    .withUsername("test")
+                    .withPassword("test")
+                    .withStartupTimeout(Duration.ofMinutes(3));
+
+    static {
+        POSTGRESQL_CONTAINER.start();
+    }
+
+    @DynamicPropertySource
+    static void registerDynamicProperties(DynamicPropertyRegistry registry) {
+        registry.add("spring.datasource.url", POSTGRESQL_CONTAINER::getJdbcUrl);
+        registry.add("spring.datasource.username", POSTGRESQL_CONTAINER::getUsername);
+        registry.add("spring.datasource.password", POSTGRESQL_CONTAINER::getPassword);
+        registry.add("spring.datasource.driver-class-name", POSTGRESQL_CONTAINER::getDriverClassName);
+
+        registry.add("spring.flyway.url", POSTGRESQL_CONTAINER::getJdbcUrl);
+        registry.add("spring.flyway.user", POSTGRESQL_CONTAINER::getUsername);
+        registry.add("spring.flyway.password", POSTGRESQL_CONTAINER::getPassword);
+
+        registry.add("spring.jpa.hibernate.ddl-auto", () -> "validate");
+    }
 
     @Autowired
     private InstitutionRepository institutionRepository;
 
     @Test
     void shouldSaveInstitution() {
-        Institution institution = new Institution("Institución de Integración");
+        Institution institution =
+                new Institution(InstitutionName.of("Institución de Integración"));
 
-        Institution savedInstitution = institutionRepository.save(institution);
+        Institution saved = institutionRepository.save(institution);
 
-        assertThat(savedInstitution).isNotNull();
-        assertThat(savedInstitution.getId()).isNotNull();
-        assertThat(savedInstitution.getName()).isEqualTo("Institución de Integración");
-        assertThat(savedInstitution.getCreatedAt()).isNotNull();
+        assertThat(saved.getId()).isNotNull();
+        assertThat(saved.getName()).isEqualTo("Institución de Integración");
+        assertThat(saved.getCreatedAt()).isNotNull();
     }
 
     @Test
-    void shouldFindInstitutionById() {
-        Institution institution = new Institution("Universidad de Persistencia");
-        Institution savedInstitution = institutionRepository.save(institution);
+    void shouldFindById() {
+        Institution institution =
+                new Institution(InstitutionName.of("Universidad de Persistencia"));
 
-        Optional<Institution> foundInstitution = institutionRepository.findById(savedInstitution.getId());
+        Institution saved = institutionRepository.save(institution);
 
-        assertThat(foundInstitution).isPresent();
-        assertThat(foundInstitution.get().getId()).isEqualTo(savedInstitution.getId());
-        assertThat(foundInstitution.get().getName()).isEqualTo("Universidad de Persistencia");
+        Optional<Institution> result = institutionRepository.findById(saved.getId());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getId()).isEqualTo(saved.getId());
+        assertThat(result.get().getName()).isEqualTo("Universidad de Persistencia");
     }
 
     @Test
-    void shouldCheckIfInstitutionExistsById() {
-        Institution institution = new Institution("Colegio Existente");
-        Institution savedInstitution = institutionRepository.save(institution);
+    void shouldVerifyExistenceById() {
+        Institution institution =
+                new Institution(InstitutionName.of("Colegio Existente"));
 
-        boolean exists = institutionRepository.existsById(savedInstitution.getId());
+        Institution saved = institutionRepository.save(institution);
+
+        boolean exists = institutionRepository.existsById(saved.getId());
 
         assertThat(exists).isTrue();
     }
 
     @Test
-    void shouldDeleteInstitutionById() {
-        Institution institution = new Institution("Institución Eliminable");
-        Institution savedInstitution = institutionRepository.save(institution);
-        UUID institutionId = savedInstitution.getId();
+    void shouldDeleteById() {
+        Institution institution =
+                new Institution(InstitutionName.of("Institución Eliminable"));
 
-        institutionRepository.deleteById(institutionId);
+        Institution saved = institutionRepository.save(institution);
 
-        Optional<Institution> deletedInstitution = institutionRepository.findById(institutionId);
+        institutionRepository.deleteById(saved.getId());
 
-        assertThat(deletedInstitution).isEmpty();
+        boolean exists = institutionRepository.existsById(saved.getId());
+
+        assertThat(exists).isFalse();
     }
 }

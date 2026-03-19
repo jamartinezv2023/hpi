@@ -3,27 +3,43 @@ package edu.hpi.service;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@DisplayName("InstitutionValidator")
 class InstitutionValidatorTest {
 
     @Nested
     @DisplayName("Valid institution names")
     class ValidInstitutionNames {
 
-        @ParameterizedTest
-        @ValueSource(strings = {
-                "Institución Central",
-                "Universidad Nacional",
-                "Colegio Técnico Palmira",
-                "Instituto Pedagógico Moderno"
-        })
-        void shouldAcceptValidNames(String name) {
+        @Test
+        @DisplayName("should accept a valid institution name")
+        void shouldAcceptValidInstitutionName() {
+            assertThatCode(() -> InstitutionValidator.validateName("Institución Educativa Central"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("should accept a valid institution name with leading and trailing spaces")
+        void shouldAcceptValidInstitutionNameWithSpaces() {
+            assertThatCode(() -> InstitutionValidator.validateName("   Institución Educativa Central   "))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("should accept a name with exactly 3 characters")
+        void shouldAcceptNameWithMinimumLength() {
+            assertThatCode(() -> InstitutionValidator.validateName("ABC"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("should accept a name with exactly 120 characters")
+        void shouldAcceptNameWithMaximumLength() {
+            String name = "A".repeat(120);
+
             assertThatCode(() -> InstitutionValidator.validateName(name))
                     .doesNotThrowAnyException();
         }
@@ -33,30 +49,54 @@ class InstitutionValidatorTest {
     @DisplayName("Invalid institution names")
     class InvalidInstitutionNames {
 
-        @ParameterizedTest
-        @NullAndEmptySource
-        @ValueSource(strings = {" ", "   ", "\t", "\n"})
-        void shouldRejectNullOrBlankNames(String name) {
-            assertThatThrownBy(() -> InstitutionValidator.validateName(name))
+        @Test
+        @DisplayName("should reject null name")
+        void shouldRejectNullName() {
+            assertThatThrownBy(() -> InstitutionValidator.validateName(null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Institution name is required");
         }
 
-        @ParameterizedTest
-        @ValueSource(strings = {"A", "AB", "  A  "})
-        void shouldRejectNamesShorterThanThreeCharacters(String name) {
-            assertThatThrownBy(() -> InstitutionValidator.validateName(name))
+        @Test
+        @DisplayName("should reject blank name")
+        void shouldRejectBlankName() {
+            assertThatThrownBy(() -> InstitutionValidator.validateName("   "))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Institution name is required");
+        }
+
+        @Test
+        @DisplayName("should reject empty name")
+        void shouldRejectEmptyName() {
+            assertThatThrownBy(() -> InstitutionValidator.validateName(""))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Institution name is required");
+        }
+
+        @Test
+        @DisplayName("should reject name shorter than 3 characters")
+        void shouldRejectNameShorterThanMinimumLength() {
+            assertThatThrownBy(() -> InstitutionValidator.validateName("AB"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Institution name must contain at least 3 characters");
         }
 
         @Test
-        void shouldRejectNamesLongerThan255Characters() {
-            String longName = "A".repeat(256);
-
-            assertThatThrownBy(() -> InstitutionValidator.validateName(longName))
+        @DisplayName("should reject trimmed name shorter than 3 characters")
+        void shouldRejectTrimmedNameShorterThanMinimumLength() {
+            assertThatThrownBy(() -> InstitutionValidator.validateName("  AB  "))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Institution name must not exceed 255 characters");
+                    .hasMessage("Institution name must contain at least 3 characters");
+        }
+
+        @Test
+        @DisplayName("should reject name longer than 120 characters")
+        void shouldRejectNameLongerThanMaximumLength() {
+            String name = "A".repeat(121);
+
+            assertThatThrownBy(() -> InstitutionValidator.validateName(name))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Institution name exceeds the maximum allowed length");
         }
     }
 }

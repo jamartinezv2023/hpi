@@ -1,6 +1,10 @@
 package edu.hpi.domain;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -21,9 +25,9 @@ public class Institution {
         // JPA
     }
 
-    public Institution(String name) {
+    public Institution(InstitutionName name) {
         this.id = UUID.randomUUID();
-        this.name = name;
+        this.name = name.value();
         this.createdAt = Instant.now();
     }
 

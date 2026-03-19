@@ -1,8 +1,8 @@
 package edu.hpi.application;
 
 import edu.hpi.domain.Institution;
+import edu.hpi.domain.InstitutionName;
 import edu.hpi.repository.InstitutionRepository;
-import edu.hpi.service.InstitutionValidator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,16 +13,21 @@ import java.util.UUID;
 @Transactional
 public class InstitutionService {
 
-    private final InstitutionRepository repository;
+    private final InstitutionRepository institutionRepository;
 
-    public InstitutionService(InstitutionRepository repository) {
-        this.repository = repository;
+    public InstitutionService(InstitutionRepository institutionRepository) {
+        this.institutionRepository = institutionRepository;
     }
 
     public Institution create(String name) {
-        InstitutionValidator.validateName(name);
-        Institution institution = new Institution(name.trim());
-        return repository.save(institution);
+        InstitutionName institutionName = InstitutionName.of(name);
+
+        if (institutionRepository.existsByNameIgnoreCase(institutionName.value())) {
+            throw new IllegalArgumentException("Institution name already exists");
+        }
+
+        Institution institution = new Institution(institutionName);
+        return institutionRepository.save(institution);
     }
 
     @Transactional(readOnly = true)
@@ -30,7 +35,7 @@ public class InstitutionService {
         if (id == null) {
             throw new IllegalArgumentException("Institution id is required");
         }
-        return repository.findById(id);
+        return institutionRepository.findById(id);
     }
 
     @Transactional(readOnly = true)
@@ -38,13 +43,13 @@ public class InstitutionService {
         if (id == null) {
             throw new IllegalArgumentException("Institution id is required");
         }
-        return repository.existsById(id);
+        return institutionRepository.existsById(id);
     }
 
     public void deleteById(UUID id) {
         if (id == null) {
             throw new IllegalArgumentException("Institution id is required");
         }
-        repository.deleteById(id);
+        institutionRepository.deleteById(id);
     }
 }

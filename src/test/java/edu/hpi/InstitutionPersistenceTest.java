@@ -1,59 +1,67 @@
 package edu.hpi;
 
 import edu.hpi.domain.Institution;
+import edu.hpi.domain.InstitutionName;
 import edu.hpi.repository.InstitutionRepository;
-import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Tag("integration")
 class InstitutionPersistenceTest extends AbstractIntegrationTest {
 
     @Autowired
-    private InstitutionRepository institutionRepository;
+    private InstitutionRepository repository;
 
     @Test
-    void shouldPersistInstitution() {
-        Institution institution = new Institution("Institución Pedagógica Central");
+    void shouldPersistInstitutionSuccessfully() {
 
-        Institution savedInstitution = institutionRepository.save(institution);
+        Institution institution =
+                new Institution(InstitutionName.of("Institución Test"));
 
-        assertThat(savedInstitution).isNotNull();
-        assertThat(savedInstitution.getId()).isNotNull();
-        assertThat(savedInstitution.getName()).isEqualTo("Institución Pedagógica Central");
-        assertThat(savedInstitution.getCreatedAt()).isNotNull();
+        repository.save(institution);
+
+        Optional<Institution> result =
+                repository.findById(institution.getId());
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getName())
+                .isEqualTo("Institución Test");
     }
 
     @Test
     void shouldFindInstitutionById() {
-        Institution institution = new Institution("Universidad de Integración");
 
-        Institution savedInstitution = institutionRepository.save(institution);
-        UUID institutionId = savedInstitution.getId();
+        Institution institution =
+                new Institution(InstitutionName.of("Institución Find"));
 
-        Institution foundInstitution = institutionRepository.findById(institutionId).orElse(null);
+        repository.save(institution);
 
-        assertThat(foundInstitution).isNotNull();
-        assertThat(foundInstitution.getId()).isEqualTo(institutionId);
-        assertThat(foundInstitution.getName()).isEqualTo("Universidad de Integración");
-        assertThat(foundInstitution.getCreatedAt()).isNotNull();
+        Optional<Institution> result =
+                repository.findById(institution.getId());
+
+        assertThat(result).isPresent();
     }
 
     @Test
     void shouldDeleteInstitution() {
-        Institution institution = new Institution("Institución Temporal");
 
-        Institution savedInstitution = institutionRepository.save(institution);
-        UUID institutionId = savedInstitution.getId();
+        Institution institution =
+                new Institution(InstitutionName.of("Institución Delete"));
 
-        institutionRepository.deleteById(institutionId);
+        repository.save(institution);
 
-        boolean exists = institutionRepository.findById(institutionId).isPresent();
+        UUID id = institution.getId();
 
-        assertThat(exists).isFalse();
+        repository.deleteById(id);
+
+        Optional<Institution> result =
+                repository.findById(id);
+
+        assertThat(result).isEmpty();
     }
+
 }

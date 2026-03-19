@@ -3,116 +3,138 @@ package edu.hpi.application;
 import edu.hpi.domain.Institution;
 import edu.hpi.repository.InstitutionRepository;
 import edu.hpi.support.InstitutionTestDataBuilder;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
+@ExtendWith(MockitoExtension.class)
 class InstitutionServiceTest {
 
-    private InstitutionRepository repository;
-    private InstitutionService institutionService;
+    @Mock
+    private InstitutionRepository institutionRepository;
 
-    @BeforeEach
-    void setUp() {
-        repository = Mockito.mock(InstitutionRepository.class);
-        institutionService = new InstitutionService(repository);
-    }
+    @InjectMocks
+    private InstitutionService institutionService;
 
     @Nested
     @DisplayName("create")
-    class CreateInstitutionTests {
+    class Create {
 
         @Test
-        void shouldCreateInstitutionWhenNameIsValid() {
-            Institution institution = InstitutionTestDataBuilder.anInstitution()
+        @DisplayName("should create institution with normalized name")
+        void shouldCreateInstitutionWithNormalizedName() {
+            String rawName = "   Institución Pedagógica Central   ";
+
+            Institution savedInstitution = InstitutionTestDataBuilder.anInstitution()
                     .withName("Institución Pedagógica Central")
                     .build();
 
-            Mockito.when(repository.save(Mockito.any(Institution.class)))
-                    .thenReturn(institution);
+            given(institutionRepository.existsByNameIgnoreCase("Institución Pedagógica Central"))
+                    .willReturn(false);
 
-            Institution result = institutionService.create("Institución Pedagógica Central");
+            given(institutionRepository.save(any(Institution.class)))
+                    .willReturn(savedInstitution);
 
-            assertThat(result).isNotNull();
-            assertThat(result.getId()).isNotNull();
-            assertThat(result.getName()).isEqualTo("Institución Pedagógica Central");
-            assertThat(result.getCreatedAt()).isNotNull();
+            Institution result = institutionService.create(rawName);
 
-            Mockito.verify(repository).save(Mockito.any(Institution.class));
+            ArgumentCaptor<Institution> institutionCaptor = ArgumentCaptor.forClass(Institution.class);
+            verify(institutionRepository).save(institutionCaptor.capture());
+
+            Institution institutionToSave = institutionCaptor.getValue();
+
+            assertThat(institutionToSave.getName()).isEqualTo("Institución Pedagógica Central");
+            assertThat(result).isSameAs(savedInstitution);
         }
 
         @Test
-        void shouldTrimInstitutionNameBeforeSaving() {
-            Institution institution = InstitutionTestDataBuilder.anInstitution()
-                    .withName("Institución Central")
-                    .build();
-
-            Mockito.when(repository.save(Mockito.any(Institution.class)))
-                    .thenReturn(institution);
-
-            institutionService.create("   Institución Central   ");
-
-            ArgumentCaptor<Institution> captor = ArgumentCaptor.forClass(Institution.class);
-            Mockito.verify(repository).save(captor.capture());
-
-            assertThat(captor.getValue().getName()).isEqualTo("Institución Central");
-        }
-
-        @Test
-        void shouldFailWhenCreateInstitutionWithNullName() {
-            assertThatThrownBy(() -> institutionService.create(null))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Institution name is required");
-        }
-
-        @Test
-        void shouldFailWhenCreateInstitutionWithBlankName() {
+        @DisplayName("should reject blank name")
+        void shouldRejectBlankName() {
             assertThatThrownBy(() -> institutionService.create("   "))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Institution name is required");
+
+            verify(institutionRepository, never()).save(any(Institution.class));
         }
 
         @Test
-        void shouldFailWhenCreateInstitutionWithShortName() {
+        @DisplayName("should reject name shorter than minimum length")
+        void shouldRejectNameShorterThanMinimumLength() {
             assertThatThrownBy(() -> institutionService.create("AB"))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Institution name must contain at least 3 characters");
+
+            verify(institutionRepository, never()).save(any(Institution.class));
+        }
+
+        @Test
+        @DisplayName("should reject name longer than maximum length")
+        void shouldRejectNameLongerThanMaximumLength() {
+            String longName = "A".repeat(121);
+
+            assertThatThrownBy(() -> institutionService.create(longName))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Institution name exceeds the maximum allowed length");
+
+            verify(institutionRepository, never()).save(any(Institution.class));
+        }
+
+        @Test
+        @DisplayName("should reject duplicated institution name")
+        void shouldRejectDuplicatedInstitutionName() {
+            given(institutionRepository.existsByNameIgnoreCase("Institución Central"))
+                    .willReturn(true);
+
+            assertThatThrownBy(() -> institutionService.create("Institución Central"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Institution name already exists");
+
+            verify(institutionRepository, never()).save(any(Institution.class));
         }
     }
 
     @Nested
     @DisplayName("findById")
-    class FindByIdTests {
+    class FindById {
 
         @Test
-        void shouldFindInstitutionByIdWhenExists() {
-            Institution institution = InstitutionTestDataBuilder.anInstitution().build();
+        @DisplayName("should return institution when id exists")
+        void shouldReturnInstitutionWhenIdExists() {
+            Institution institution = InstitutionTestDataBuilder.anInstitution()
+                    .withName("Institución de Consulta")
+                    .build();
 
-            Mockito.when(repository.findById(institution.getId()))
-                    .thenReturn(Optional.of(institution));
+            given(institutionRepository.findById(institution.getId()))
+                    .willReturn(Optional.of(institution));
 
             Optional<Institution> result = institutionService.findById(institution.getId());
 
             assertThat(result).isPresent();
-            assertThat(result.get().getId()).isEqualTo(institution.getId());
-            assertThat(result.get().getName()).isEqualTo(institution.getName());
+            assertThat(result.get()).isSameAs(institution);
         }
 
         @Test
-        void shouldReturnEmptyWhenInstitutionDoesNotExist() {
+        @DisplayName("should return empty when id does not exist")
+        void shouldReturnEmptyWhenIdDoesNotExist() {
             UUID id = UUID.randomUUID();
 
-            Mockito.when(repository.findById(id))
-                    .thenReturn(Optional.empty());
+            given(institutionRepository.findById(id))
+                    .willReturn(Optional.empty());
 
             Optional<Institution> result = institutionService.findById(id);
 
@@ -120,7 +142,8 @@ class InstitutionServiceTest {
         }
 
         @Test
-        void shouldFailWhenFindByIdWithNullId() {
+        @DisplayName("should reject null id")
+        void shouldRejectNullId() {
             assertThatThrownBy(() -> institutionService.findById(null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Institution id is required");
@@ -129,34 +152,37 @@ class InstitutionServiceTest {
 
     @Nested
     @DisplayName("existsById")
-    class ExistsByIdTests {
+    class ExistsById {
 
         @Test
-        void shouldReturnTrueWhenInstitutionExistsById() {
+        @DisplayName("should return true when institution exists")
+        void shouldReturnTrueWhenInstitutionExists() {
             UUID id = UUID.randomUUID();
 
-            Mockito.when(repository.existsById(id))
-                    .thenReturn(true);
+            given(institutionRepository.existsById(id))
+                    .willReturn(true);
 
-            boolean exists = institutionService.existsById(id);
+            boolean result = institutionService.existsById(id);
 
-            assertThat(exists).isTrue();
+            assertThat(result).isTrue();
         }
 
         @Test
-        void shouldReturnFalseWhenInstitutionDoesNotExistById() {
+        @DisplayName("should return false when institution does not exist")
+        void shouldReturnFalseWhenInstitutionDoesNotExist() {
             UUID id = UUID.randomUUID();
 
-            Mockito.when(repository.existsById(id))
-                    .thenReturn(false);
+            given(institutionRepository.existsById(id))
+                    .willReturn(false);
 
-            boolean exists = institutionService.existsById(id);
+            boolean result = institutionService.existsById(id);
 
-            assertThat(exists).isFalse();
+            assertThat(result).isFalse();
         }
 
         @Test
-        void shouldFailWhenExistsByIdWithNullId() {
+        @DisplayName("should reject null id")
+        void shouldRejectNullId() {
             assertThatThrownBy(() -> institutionService.existsById(null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Institution id is required");
@@ -165,19 +191,21 @@ class InstitutionServiceTest {
 
     @Nested
     @DisplayName("deleteById")
-    class DeleteByIdTests {
+    class DeleteById {
 
         @Test
-        void shouldDeleteInstitutionById() {
+        @DisplayName("should delegate delete to repository")
+        void shouldDelegateDeleteToRepository() {
             UUID id = UUID.randomUUID();
 
             institutionService.deleteById(id);
 
-            Mockito.verify(repository).deleteById(id);
+            verify(institutionRepository).deleteById(eq(id));
         }
 
         @Test
-        void shouldFailWhenDeleteByIdWithNullId() {
+        @DisplayName("should reject null id")
+        void shouldRejectNullId() {
             assertThatThrownBy(() -> institutionService.deleteById(null))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("Institution id is required");
